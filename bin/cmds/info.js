@@ -1,6 +1,12 @@
 const { connection } = require('../../lib/client');
 const logger = require('../../lib/logger');
 
+/**
+ * Count number of documents in index
+ * @param {String} name name of index
+ * @param {Object} client elastic client
+ * @returns {Int} number of documents
+ */
 const countDocuments = async (name, client) => {
   let data;
   try {
@@ -13,6 +19,13 @@ const countDocuments = async (name, client) => {
   return data.body.count ? data.body.count : 0;
 };
 
+/**
+ * Count number of documents for one institute
+ * @param {String} name name of index
+ * @param {Object} client elastic client
+ * @returns {Int} number of documents
+ * @returns number of documents for one institute
+ */
 const countInstitutes = async (name, institute, client) => {
   let data;
   const query = {
@@ -37,31 +50,37 @@ const countInstitutes = async (name, institute, client) => {
   return data.body.count ? data.body.count : 0;
 };
 
-module.exports = {
-  info: async (args) => {
-    const client = await connection(args.use);
-    const documents = await countDocuments('etatcollhlm', client);
-    const IN2P3 = await countInstitutes('etatcollhlm', 'IN2P3', client);
-    const INC = await countInstitutes('etatcollhlm', 'INC', client);
-    const INEE = await countInstitutes('etatcollhlm', 'INEE', client);
-    const INP = await countInstitutes('etatcollhlm', 'INP', client);
-    const INS2I = await countInstitutes('etatcollhlm', 'INS2I', client);
-    const INSB = await countInstitutes('etatcollhlm', 'INSB', client);
-    const INSHS = await countInstitutes('etatcollhlm', 'INSHS', client);
-    const INSIS = await countInstitutes('etatcollhlm', 'INSIS', client);
-    const INSMI = await countInstitutes('etatcollhlm', 'INSMI', client);
-    const INSU = await countInstitutes('etatcollhlm', 'INSU', client);
+/**
+ * display informations on terminal
+ * @param {Object} args object from commander
+ */
+const info = async (args) => {
+  const client = await connection(args.use);
+  const documents = await countDocuments('ezhlm', client);
+  const IN2P3 = await countInstitutes('ezhlm', 'IN2P3', client);
+  const INC = await countInstitutes('ezhlm', 'INC', client);
+  const INEE = await countInstitutes('ezhlm', 'INEE', client);
+  const INP = await countInstitutes('ezhlm', 'INP', client);
+  const INS2I = await countInstitutes('ezhlm', 'INS2I', client);
+  const INSB = await countInstitutes('ezhlm', 'INSB', client);
+  const INSHS = await countInstitutes('ezhlm', 'INSHS', client);
+  const INSIS = await countInstitutes('ezhlm', 'INSIS', client);
+  const INSMI = await countInstitutes('ezhlm', 'INSMI', client);
+  const INSU = await countInstitutes('ezhlm', 'INSU', client);
 
-    logger.info(`Number total documents in index etatcollhlm: ${documents}`);
-    logger.info(`IN2P3: ${IN2P3}`);
-    logger.info(`INC: ${INC}`);
-    logger.info(`INEE: ${INEE}`);
-    logger.info(`INP: ${INP}`);
-    logger.info(`INS2I: ${INS2I}`);
-    logger.info(`INSB: ${INSB}`);
-    logger.info(`INSHS: ${INSHS}`);
-    logger.info(`INSIS: ${INSIS}`);
-    logger.info(`INSMI: ${INSMI}`);
-    logger.info(`INSU: ${INSU}`);
-  },
+  logger.info(`Number total documents in index ezhlm: ${documents}`);
+  logger.info(`IN2P3: ${IN2P3}`);
+  logger.info(`INC: ${INC}`);
+  logger.info(`INEE: ${INEE}`);
+  logger.info(`INP: ${INP}`);
+  logger.info(`INS2I: ${INS2I}`);
+  logger.info(`INSB: ${INSB}`);
+  logger.info(`INSHS: ${INSHS}`);
+  logger.info(`INSIS: ${INSIS}`);
+  logger.info(`INSMI: ${INSMI}`);
+  logger.info(`INSU: ${INSU}`);
+};
+
+module.exports = {
+  info,
 };

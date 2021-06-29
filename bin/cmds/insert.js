@@ -11,16 +11,14 @@ const { connection } = require('../../lib/client');
 
 const logger = require('../../lib/logger');
 
-const bar = new cliProgress.SingleBar({
-  format: 'progress [{bar}] {percentage}% | {value}/{total} bytes',
-});
-
 /**
- * @param {*} data array of HLM datas
+ * insert by packet of 1000, parsed data to elastic (ez-meta)
+ * @param {Object} client elastic client
+ * @param {Array} data array of HLM datas
  */
 const insertHLM = async (client, data) => {
   let res;
-  const body = data.flatMap((doc) => [{ index: { _index: 'etatcollhlm' } }, doc]);
+  const body = data.flatMap((doc) => [{ index: { _index: 'ezhlm2' } }, doc]);
   try {
     res = await client.bulk({ refresh: true, body });
   } catch (err) {
@@ -30,20 +28,63 @@ const insertHLM = async (client, data) => {
   return res.body.items.length;
 };
 
+/**
+ * parse csv data to json
+ * @param {Object} data unparsed data
+ * @param {String} name key of data need to be parsed
+ * @returns {Object} parsed data
+ */
 const transformStringToArray = (data, name) => {
   if (data[name]) {
     if (data[name].includes('|')) {
       const dates = data[name].split('|');
       const newdates = [];
       dates.forEach((date) => {
+        if (date === 'Present') {
+          newdates.push('3000-01-01');
+        } else {
+          newdates.push(date);
+        }
         newdates.push(date);
       });
       data[name] = newdates;
     }
   }
+  if (data[name] === 'Present') {
+    data[name] = '3000-01-01';
+  }
   return data;
 };
 
+/**
+ * parse embargo data for json format
+ * @param {Object} data unparsed data
+ * @param {String} embargo type of embargo
+ * @returns {Object} parsed data
+ */
+const transformEmbargo = (data, embargo) => {
+  if (!data[embargo]) {
+    return data;
+  }
+  const time = data[embargo];
+  const splited = time.split(' ');
+  const number = splited[0];
+  const indicator = splited[1].toUpperCase();
+  let multiplicator = 1;
+  if (indicator === 'YEARS') {
+    multiplicator = 12;
+  }
+  if (indicator === 'DAYS') {
+    multiplicator = 0.3;
+  }
+  data[embargo] = `${number * multiplicator} mois`;
+  return data;
+};
+
+/**
+ * insert the content of file into elastic (ez-meta)
+ * @param {Object} args object from commander
+ */
 const insertion = async (args) => {
   let lineInFile = 0;
   let lineInserted = 0;
@@ -86,6 +127,9 @@ const insertion = async (args) => {
   const tmp = readStream.path.split('/');
   const [file] = tmp[tmp.length - 1].split('.');
 
+  const bar = new cliProgress.SingleBar({
+    format: 'progress [{bar}] {percentage}% | {value}/{total} bytes',
+  });
   const stat = await fs.stat(readStream.path);
   bar.start(stat.size, 0);
 
@@ -103,17 +147,19 @@ const insertion = async (args) => {
             data[attr.trim()] = data[attr];
             delete data[attr];
           }
-
           // skip empty field
           if (data[attr] === '') {
             delete data[attr];
           }
-
-          data = transformStringToArray(data, 'ManagedCoverageBegin');
-          data = transformStringToArray(data, 'ManagedCoverageEnd');
-          data = transformStringToArray(data, 'CustomCoverageBegin');
-          data = transformStringToArray(data, 'CustomCoverageEnd');
         }
+
+        data = transformStringToArray(data, 'ManagedCoverageBegin');
+        data = transformStringToArray(data, 'ManagedCoverageEnd');
+        data = transformStringToArray(data, 'CustomCoverageBegin');
+        data = transformStringToArray(data, 'CustomCoverageEnd');
+        data = transformEmbargo(data, 'Embargo');
+        data = transformEmbargo(data, 'CustomEmbargo');
+
         tab.push(data);
         if (tab.length === 1000) {
           await parser.pause();
@@ -134,7 +180,6 @@ const insertion = async (args) => {
   }
   bar.update(stat.size);
   bar.stop();
-  console.log('\n');
   if (args.verbose) {
     logger.info(`${lineInserted}/${lineInFile - 1} lines inserted`);
   }
